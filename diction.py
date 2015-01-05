@@ -118,8 +118,10 @@ def mark_words(view, search_all=True):
                 pattern = re.escape(w.conflicting_phrase + w.surrounding_text)
             else:
                 pattern = re.escape(w.surrounding_text + w.conflicting_phrase)
-
-            intermediate_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
+            try:
+                intermediate_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
+            except UnicodeDecodeError:
+                continue  # Skip on really weird input words
             # to just mark the conflicting phrase and not the complete regex match, edit the regions >:)
             for region in intermediate_regions:
                 found_regions.append(sublime.Region(region.a, region.a + len(w.conflicting_phrase)))
