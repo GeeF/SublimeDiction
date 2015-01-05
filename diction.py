@@ -14,6 +14,13 @@ os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew
 # * just use listener for statusbar update. put scan in separate command ivokable by cmd+p
 
 
+def debug(msg):
+    ''' debug util method '''
+    if not settings.debug:
+        return
+    print("[Diction] {0}".format(msg))
+
+
 class DictionMatchObject(object):
     ''' object for a single diction suggestion '''
     def __init__(self, lineno, conflicting_phrase='', suggestion='', surrounding_text='', surrounding_after=True):
@@ -54,14 +61,13 @@ def mark_words(view, search_all=True):
         if window:
             view = window.active_view()
         if view:
-            if settings.debug:
-                print('\n\nDiction: running diction on file: ' + view.file_name())
+            debug('\n\nrunning diction on file: ' + view.file_name())
             try:
                 # add -s to get the suggestions from diction
                 output = subprocess.Popen([settings.diction_executable, '-qs', view.file_name()],
                                           stdout=subprocess.PIPE).communicate()[0]
             except OSError:
-                print('Diction: Error. diction does not seem to be installed or is not in the PATH.')
+                print('[Diction] Error. diction does not seem to be installed or is not in the PATH.')
 
             prefiltered_output = output[:output.rfind('\n\n')]
             # needed regexes
@@ -92,14 +98,13 @@ def mark_words(view, search_all=True):
 
                         diction_words.append(new_diction_match_object)
 
-                if settings.debug:
-                    print ('Diction word tokens found:\n')
-                    #for nd in diction_words:
-                    #    print nd
+                debug('word tokens found:\n')
+                for nd in diction_words:
+                    debug(nd)
             SUGGESTIONS_IN_VIEW[view.id()] = diction_words
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
-            print('Diction: could not get view. Abort')
+            print('could not get view. Abort')
             return []
         return diction_words
 
@@ -107,8 +112,7 @@ def mark_words(view, search_all=True):
         # construct the regex pattern for find_all
         pattern = ''
         found_regions = []
-        if settings.debug:
-            print('Diction: searching whole document')
+        debug('searching whole document')
         for w in words:
             if w.surrounding_after:
                 pattern = re.escape(w.conflicting_phrase + w.surrounding_text)
@@ -120,8 +124,7 @@ def mark_words(view, search_all=True):
             for region in intermediate_regions:
                 found_regions.append(sublime.Region(region.a, region.a + len(w.conflicting_phrase)))
 
-        if settings.debug:
-            print found_regions
+        debug(found_regions)
         return found_regions
 
     def lazy_mark_regions(new_regions, old_regions, style_key, color_scope_name, symbol_name, draw_style):
@@ -287,8 +290,7 @@ class DictionListener(sublime_plugin.EventListener):
 
         elif current_line != self._last_selected_line:  # line was changed
             self._last_selected_line = current_line
-            if settings.debug:
-                print('Diction: update statusbar.')
+            debug('update statusbar.')
             update_statusbar(view)
 
 
