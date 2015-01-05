@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import os
 import sublime
 import sublime_plugin
@@ -5,8 +6,13 @@ import subprocess
 import re
 
 diction_word_regions = []
-diction_words = [] # line nos and diction text
-os.environ['PATH'] += os.pathsep + '/usr/local/bin' # add this for OSX homebrew diction executable
+SUGGESTIONS_IN_VIEW = {}  # error organized per view to display
+os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew diction executable
+
+# TODO:
+# * debug fnc
+# * 
+
 
 class DictionMatchObject(object):
     ''' object for a single diction suggestion '''
@@ -22,6 +28,7 @@ class DictionMatchObject(object):
              + 'conflicting_phrase: ' + self.conflicting_phrase + '\n' \
              + 'suggestion: ' + self.suggestion + '\n' \
              + 'surrounding_after: ' + str(self.surrounding_after) + '  surrounding_text: ' + self.surrounding_text + '\n'
+
 
 def mark_words(view, search_all=True):
     ''' run the external diction executable, parse output, mark in editor and create the tooltip texts '''
@@ -73,7 +80,7 @@ def mark_words(view, search_all=True):
                         new_diction_match_object.conflicting_phrase = ex_arrows_before.search(token).group()
                         new_diction_match_object.suggestion = ex_arrows_after.search(token).group()[3:]
 
-                        if next_token == None or next_token.strip() == '':
+                        if next_token is None or next_token.strip() == '':
                             # there is no next token. take the previous one
                             new_diction_match_object.surrounding_text = prev_token
                             new_diction_match_object.surrounding_after = False
@@ -87,7 +94,7 @@ def mark_words(view, search_all=True):
                     print ('Diction word tokens found:\n')
                     #for nd in diction_words:
                     #    print nd
-                
+            SUGGESTIONS_IN_VIEW[view.id()] = diction_words
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
             print('Diction: could not get view. Abort')
@@ -98,24 +105,21 @@ def mark_words(view, search_all=True):
         # construct the regex pattern for find_all
         pattern = ''
         found_regions = []
+        if settings.debug:
+            print('Diction: searching whole document')
         for w in words:
             if w.surrounding_after:
                 pattern = re.escape(w.conflicting_phrase + w.surrounding_text)
             else:
                 pattern = re.escape(w.surrounding_text + w.conflicting_phrase)
-            print pattern
 
-            if settings.debug:
-                print('Diction: searching whole document')
             intermediate_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
-            # to just mark the first word and not the complete regex match, edit the regions >:)
+            # to just mark the conflicting phrase and not the complete regex match, edit the regions >:)
             for region in intermediate_regions:
                 found_regions.append(sublime.Region(region.a, region.a + len(w.conflicting_phrase)))
 
-            print intermediate_regions
-            #found_regions += intermediate_regions
-
-        print found_regions
+        if settings.debug:
+            print found_regions
         return found_regions
 
     def lazy_mark_regions(new_regions, old_regions, style_key, color_scope_name, symbol_name, draw_style):
@@ -143,8 +147,64 @@ def mark_words(view, search_all=True):
         out_flags)
 
 
+def clear_statusbar(view):
+    ''' Clear status bar '''
+    view.erase_status('diction-tip')
+
+
+def update_statusbar(view):
+    ''' write suggestions to status bar '''
+
+    def get_current_line(view):
+        ''' Get current line (line under cursor) '''
+        # get view selection (exit if no selection)
+        view_selection = view.sel()
+        if not view_selection:
+            return None
+
+        point = view_selection[0].end()
+        position = view.rowcol(point)
+        return position[0]
+
+    # get diction view suggestions or return
+    view_sugs = SUGGESTIONS_IN_VIEW.get(view.id())
+
+    if view_sugs is None:
+        return
+
+    # get view selection (exit if no selection)
+    view_selection = view.sel()
+    if not view_selection:
+        return
+
+    current_line = get_current_line(view)
+    if current_line is None:
+        return
+
+    view.set_status('diction-tip', 'Diction: here be status-bar update')
+
+    sugs_for_current_line = []
+    for e in view_sugs:
+        if current_line == int(e.lineno):
+            print e.lineno
+            sugs_for_current_line.append(e)
+    
+    if sugs_for_current_line:  # there are suggestions for this line
+        view_str = ''
+        for sug in sugs_for_current_line:
+            view_str += sug.conflicting_phrase + ': ' + sug.suggestion + ' / '
+        view.set_status('diction-tip', 'Diction: %s' % view_str)
+    else:
+        # no suggestions here, clear
+        view.erase_status('diction-tip')
+
+
 class DictionListener(sublime_plugin.EventListener):
     enabled = False
+
+    def __init__(self, *args, **kwargs):
+        super(DictionListener, self).__init__(*args, **kwargs)
+        self._last_selected_line = None
 
     @classmethod
     def disable(cls):
@@ -202,6 +262,30 @@ class DictionListener(sublime_plugin.EventListener):
     def on_modified(self, view):
         if DictionListener.enabled:
             mark_words(view, search_all=False)
+
+    def on_selection_modified(self, view):
+        ''' cursor moved, check, if there is anything to display '''
+        if view.is_scratch():  # leave scratch views out
+            return
+
+        view_selection = view.sel()
+        if not view_selection:
+            return None
+
+        point = view_selection[0].end()
+        position = view.rowcol(point)
+        current_line = position[0]
+
+        if current_line is None:
+            if self._last_selected_line is not None:  # line was selected
+                self._last_selected_line = None
+                view.erase_status('diction-tip')
+
+        elif current_line != self._last_selected_line:  # line was changed
+            self._last_selected_line = current_line
+            if settings.debug:
+                print('Diction: update statusbar.')
+            update_statusbar(view)
 
 
 def load_settings():

@@ -1,5 +1,5 @@
 {
-	"extensions": [".py", ".tex", ".md", ".mdown", ".markdown", ".txt"],
+	"extensions": [".tex", ".md", ".mdown", ".markdown", ".txt"],
 	"enabled": true,
 	"debug": true
 }
