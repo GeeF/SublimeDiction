@@ -166,7 +166,7 @@ def update_statusbar(view):
 
         point = view_selection[0].end()
         position = view.rowcol(point)
-        return position[0]
+        return position[0] + 1  # subl line starts at 0
 
     # get diction view suggestions or return
     view_sugs = SUGGESTIONS_IN_VIEW.get(view.id())
@@ -180,10 +180,9 @@ def update_statusbar(view):
         return
 
     current_line = get_current_line(view)
+    print current_line
     if current_line is None:
         return
-
-    view.set_status('diction-tip', 'Diction: here be status-bar update')
 
     sugs_for_current_line = []
     for e in view_sugs:
