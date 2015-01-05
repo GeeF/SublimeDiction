@@ -11,7 +11,7 @@ os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew
 
 # TODO:
 # * debug fnc
-# * 
+# * just use listener for statusbar update. put scan in separate command ivokable by cmd+p
 
 
 class DictionMatchObject(object):
@@ -27,7 +27,8 @@ class DictionMatchObject(object):
         return 'lineno: ' + self.lineno + '\n' \
              + 'conflicting_phrase: ' + self.conflicting_phrase + '\n' \
              + 'suggestion: ' + self.suggestion + '\n' \
-             + 'surrounding_after: ' + str(self.surrounding_after) + '  surrounding_text: ' + self.surrounding_text + '\n'
+             + 'surrounding_after: ' + str(self.surrounding_after) + '  surrounding_text: ' \
+             + self.surrounding_text + '\n'
 
 
 def mark_words(view, search_all=True):
@@ -40,15 +41,15 @@ def mark_words(view, search_all=True):
         prev = None
         item = iterator.next()  # throws StopIteration if empty.
         for next in iterator:
-            yield (prev,item,next)
+            yield (prev, item, next)
             prev = item
             item = next
-        yield (prev,item,None)
+        yield (prev, item, None)
 
     def run_diction():
         ''' runs the diction executable and parses its output '''
         diction_words = []
-        
+
         window = sublime.active_window()
         if window:
             view = window.active_view()
@@ -57,7 +58,8 @@ def mark_words(view, search_all=True):
                 print('\n\nDiction: running diction on file: ' + view.file_name())
             try:
                 # add -s to get the suggestions from diction
-                output = subprocess.Popen([settings.diction_executable, '-qs', view.file_name()], stdout=subprocess.PIPE).communicate()[0]
+                output = subprocess.Popen([settings.diction_executable, '-qs', view.file_name()],
+                                          stdout=subprocess.PIPE).communicate()[0]
             except OSError:
                 print('Diction: Error. diction does not seem to be installed or is not in the PATH.')
 
@@ -69,13 +71,13 @@ def mark_words(view, search_all=True):
 
             for l in prefiltered_output.split('\n'):
                 if l.split(':') == ['']:
-                    continue # empty lines of diction output
-                diction_text_for_line = ''.join(l.split(': ')[1:]) # strip the line no
-                
+                    continue  # empty lines of diction output
+                diction_text_for_line = ''.join(l.split(': ')[1:])  # strip the line no
+
                 # find the conflicting phrases in this line
-                prev_token = '' # in case there is no next token to align the text anymore (end of sentence, paragraph)
+                prev_token = ''  # in case there is no next token to align the text anymore (end of sentence, paragraph)
                 for prev_token, token, next_token in neighborhood(ex_brackets.split(diction_text_for_line)):
-                    if '->' in token: # suggestion by diction: a new conflict found
+                    if '->' in token:  # suggestion by diction: a new conflict found
                         new_diction_match_object = DictionMatchObject(l.split(': ')[0], diction_text_for_line, '', '')
                         new_diction_match_object.conflicting_phrase = ex_arrows_before.search(token).group()
                         new_diction_match_object.suggestion = ex_arrows_after.search(token).group()[3:]
@@ -87,7 +89,7 @@ def mark_words(view, search_all=True):
                         else:
                             new_diction_match_object.surrounding_text = next_token
                             new_diction_match_object.surrounding_after = True
-                        
+
                         diction_words.append(new_diction_match_object)
 
                 if settings.debug:
@@ -135,7 +137,7 @@ def mark_words(view, search_all=True):
         out_flags = sublime.DRAW_NO_FILL + sublime.DRAW_NO_OUTLINE + sublime.DRAW_STIPPLED_UNDERLINE
     except AttributeError:    # nothing of this is available in ST2
         out_flags = sublime.DRAW_OUTLINED
-    
+
     words = run_diction()
     new_regions = find_words(words)
     diction_word_regions = lazy_mark_regions(
@@ -188,7 +190,7 @@ def update_statusbar(view):
         if current_line == int(e.lineno):
             print e.lineno
             sugs_for_current_line.append(e)
-    
+
     if sugs_for_current_line:  # there are suggestions for this line
         view_str = ''
         for sug in sugs_for_current_line:
@@ -217,9 +219,7 @@ class DictionListener(sublime_plugin.EventListener):
                 view.erase_regions("Diction")
 
     def handle_event(self, view):
-        """
-        determines if the package status changed. marks words when turned on.
-        """
+        ''' determines if the package status changed. marks words when turned on '''
         global settings
 
         # does settings enable package?
@@ -261,7 +261,7 @@ class DictionListener(sublime_plugin.EventListener):
 
     def on_modified(self, view):
         if DictionListener.enabled:
-            mark_words(view, search_all=False)
+            mark_words(view, search_all=False)  # TODO move to own Command
 
     def on_selection_modified(self, view):
         ''' cursor moved, check, if there is anything to display '''
@@ -316,17 +316,17 @@ if int(sublime.version()) < 3000:
 
 
 def plugin_loaded():
-    """
+    '''
     Seems that in ST3, plugins should read settings in this method.
     See: http://www.sublimetext.com/forum/viewtopic.php?f=6&t=15160
-    """
+    '''
     global settings
     settings = load_settings()  # read settings as package loads.
 
 
 class ToggleDiction(sublime_plugin.ApplicationCommand):
     ''' menu item that toggles the enabled status of this package '''
-    
+
     def run(self):
         global settings
         settings.enabled = not settings.enabled
