@@ -24,6 +24,7 @@ class DictionMatchObject(object):
              + 'surrounding_after: ' + str(self.surrounding_after) + '  surrounding_text: ' + self.surrounding_text + '\n'
 
 def mark_words(view, search_all=True):
+    ''' run the external diction executable, parse output, mark in editor and create the tooltip texts '''
     global settings, diction_word_regions
 
     def neighborhood(iterable):
@@ -89,7 +90,7 @@ def mark_words(view, search_all=True):
                 
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
-            print('Diction: could not get view. Abort') 
+            print('Diction: could not get view. Abort')
             return []
         return diction_words
 
@@ -103,31 +104,17 @@ def mark_words(view, search_all=True):
             else:
                 pattern = re.escape(w.surrounding_text + w.conflicting_phrase)
             print pattern
-            if search_all:
-                if settings.debug:
-                    print('Diction: searching whole document')
-                found_regions += view.find_all(pattern, sublime.IGNORECASE, '', [])
-            else:
-                if settings.debug:
-                    print('Diction: searching around visible region')
-                found_regions = []
-                chunk_size = 2 * 10 ** 3
 
-                visible_region = view.visible_region()
-                begin = max(visible_region.begin() - chunk_size, 0)
-                end = min(visible_region.end() + chunk_size, view.size())
-                from_point = begin
-                while True:
-                    region = view.find(pattern, from_point, sublime.IGNORECASE)
-                    if region:
-                        found_regions.append(region)
-                        rend = region.end()
-                        if rend > end:
-                            break
-                        else:
-                            from_point = rend
-                    else:
-                        break
+            if settings.debug:
+                print('Diction: searching whole document')
+            intermediate_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
+            # to just mark the first word and not the complete regex match, edit the regions >:)
+            for region in intermediate_regions:
+                found_regions.append(sublime.Region(region.a, region.a + len(w.conflicting_phrase)))
+
+            print intermediate_regions
+            #found_regions += intermediate_regions
+
         print found_regions
         return found_regions
 
@@ -152,8 +139,8 @@ def mark_words(view, search_all=True):
         diction_word_regions,
         'Diction',
         settings.color_scope_name,
-        'comment',
-        out_flags )
+        'dot',
+        out_flags)
 
 
 class DictionListener(sublime_plugin.EventListener):
@@ -242,6 +229,7 @@ settings = None
 # only do this for ST2, use plugin_loaded for ST3.
 if int(sublime.version()) < 3000:
     settings = load_settings()  # read settings as package loads.
+
 
 def plugin_loaded():
     """
