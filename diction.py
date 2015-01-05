@@ -64,34 +64,28 @@ def mark_words(view, search_all=True):
                     continue # empty lines of diction output
                 diction_text_for_line = ''.join(l.split(': ')[1:]) # strip the line no
                 
-                
-
-                print ex_brackets.split(diction_text_for_line)
                 # find the conflicting phrases in this line
                 prev_token = '' # in case there is no next token to align the text anymore (end of sentence, paragraph)
                 for prev_token, token, next_token in neighborhood(ex_brackets.split(diction_text_for_line)):
-                    print token
-                    print '-'
                     if '->' in token: # suggestion by diction: a new conflict found
                         new_diction_match_object = DictionMatchObject(l.split(': ')[0], diction_text_for_line, '', '')
                         new_diction_match_object.conflicting_phrase = ex_arrows_before.search(token).group()
                         new_diction_match_object.suggestion = ex_arrows_after.search(token).group()[3:]
 
-                        if next_token == None or next_token.strip() == '': 
-                            print '!!!!NO NEXT TOKEN!!!'
+                        if next_token == None or next_token.strip() == '':
+                            # there is no next token. take the previous one
                             new_diction_match_object.surrounding_text = prev_token
                             new_diction_match_object.surrounding_after = False
                         else:
                             new_diction_match_object.surrounding_text = next_token
                             new_diction_match_object.surrounding_after = True
                         
-                        
                         diction_words.append(new_diction_match_object)
 
                 if settings.debug:
                     print ('Diction word tokens found:\n')
-                    for nd in diction_words:
-                        print nd
+                    #for nd in diction_words:
+                    #    print nd
                 
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
@@ -99,32 +93,42 @@ def mark_words(view, search_all=True):
             return []
         return diction_words
 
-    def find_words(pattern):
-        if search_all:
-            if settings.debug:
-                print('Diction: searching whole document')
-            found_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
-        else:
-            if settings.debug:
-                print('Diction: searching around visible region')
-            found_regions = []
-            chunk_size = 2 * 10 ** 3
+    def find_words(words):
+        # construct the regex pattern for find_all
+        pattern = ''
+        found_regions = []
+        for w in words:
+            if w.surrounding_after:
+                pattern = re.escape(w.conflicting_phrase + w.surrounding_text)
+            else:
+                pattern = re.escape(w.surrounding_text + w.conflicting_phrase)
+            print pattern
+            if search_all:
+                if settings.debug:
+                    print('Diction: searching whole document')
+                found_regions += view.find_all(pattern, sublime.IGNORECASE, '', [])
+            else:
+                if settings.debug:
+                    print('Diction: searching around visible region')
+                found_regions = []
+                chunk_size = 2 * 10 ** 3
 
-            visible_region = view.visible_region()
-            begin = max(visible_region.begin() - chunk_size, 0)
-            end = min(visible_region.end() + chunk_size, view.size())
-            from_point = begin
-            while True:
-                region = view.find(pattern, from_point, sublime.IGNORECASE)
-                if region:
-                    found_regions.append(region)
-                    rend = region.end()
-                    if rend > end:
-                        break
+                visible_region = view.visible_region()
+                begin = max(visible_region.begin() - chunk_size, 0)
+                end = min(visible_region.end() + chunk_size, view.size())
+                from_point = begin
+                while True:
+                    region = view.find(pattern, from_point, sublime.IGNORECASE)
+                    if region:
+                        found_regions.append(region)
+                        rend = region.end()
+                        if rend > end:
+                            break
+                        else:
+                            from_point = rend
                     else:
-                        from_point = rend
-                else:
-                    break
+                        break
+        print found_regions
         return found_regions
 
     def lazy_mark_regions(new_regions, old_regions, style_key, color_scope_name, symbol_name, draw_style):
@@ -142,15 +146,14 @@ def mark_words(view, search_all=True):
         out_flags = sublime.DRAW_OUTLINED
     
     words = run_diction()
-    testwordpattern = 'testword'
-    new_regions = find_words(testwordpattern)
+    new_regions = find_words(words)
     diction_word_regions = lazy_mark_regions(
         new_regions,
         diction_word_regions,
         'Diction',
         settings.color_scope_name,
         'comment',
-        out_flags ) #
+        out_flags )
 
 
 class DictionListener(sublime_plugin.EventListener):
