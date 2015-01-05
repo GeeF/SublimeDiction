@@ -126,9 +126,7 @@ def mark_words(view, search_all=True):
 
     def lazy_mark_regions(new_regions, old_regions, style_key, color_scope_name, symbol_name, draw_style):
         if old_regions != new_regions or True:
-            # print 'adding new regions'
             view.erase_regions(style_key)
-            # name, regions, style, symbol in gutter, draw outlined
             view.add_regions(style_key, new_regions, color_scope_name, symbol_name, draw_style)
         return new_regions
 
@@ -200,7 +198,14 @@ def update_statusbar(view):
         view.erase_status('diction-tip')
 
 
+class DictionCommand(sublime_plugin.TextCommand):
+    ''' Do flake8 lint on current file '''
+    def run(self, edit):
+        print('==== Diction Command ====')
+
+
 class DictionListener(sublime_plugin.EventListener):
+    ''' just triggers status bar update with cursor movement '''
     enabled = False
 
     def __init__(self, *args, **kwargs):
