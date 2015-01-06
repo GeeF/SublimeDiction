@@ -1,5 +1,5 @@
 {
 	"extensions": [".tex", ".md", ".mdown", ".markdown", ".txt"],
 	"enabled": true,
-	"debug": true
+	"debug": false
 }
