@@ -257,6 +257,7 @@ class DictionListener(sublime_plugin.EventListener):
         ''' determines if the package status changed. marks words when turned on '''
         global settings
 
+        settings = load_settings()
         # does settings enable package?
         if not settings.enabled:
             DictionListener.disable()
