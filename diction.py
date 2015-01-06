@@ -126,7 +126,7 @@ def mark_words(view, search_all=True):
             for region in intermediate_regions:
                 found_regions.append(sublime.Region(region.a, region.a + len(w.conflicting_phrase)))
 
-        debug(found_regions)
+        debug('Found regions: ' + str(found_regions))
         return found_regions
 
     def lazy_mark_regions(new_regions, old_regions, style_key, color_scope_name, symbol_name, draw_style):
@@ -183,20 +183,19 @@ def update_statusbar(view):
         return
 
     current_line = get_current_line(view)
-    print current_line
     if current_line is None:
         return
 
     sugs_for_current_line = []
     for e in view_sugs:
         if current_line == int(e.lineno):
-            print e.lineno
             sugs_for_current_line.append(e)
 
     if sugs_for_current_line:  # there are suggestions for this line
         view_str = ''
         for sug in sugs_for_current_line:
             view_str += sug.conflicting_phrase + ': ' + sug.suggestion + ' / '
+        debug('current_line: ' + str(current_line) + '   ' + view_str)
         view.set_status('diction-tip', 'Diction: %s' % view_str)
     else:
         # no suggestions here, clear
