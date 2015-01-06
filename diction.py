@@ -10,8 +10,7 @@ SUGGESTIONS_IN_VIEW = {}  # error organized per view to display
 os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew diction executable
 
 # TODO:
-# * debug fnc
-# * just use listener for statusbar update. put scan in separate command ivokable by cmd+p
+# * regex only once
 
 
 def debug(msg):
@@ -41,6 +40,10 @@ class DictionMatchObject(object):
 def mark_words(view, search_all=True):
     ''' run the external diction executable, parse output, mark in editor and create the tooltip texts '''
     global settings, diction_word_regions
+    
+    window = sublime.active_window()
+    if window:
+        view = window.active_view()
 
     def neighborhood(iterable):
         ''' generator function providing next and previous items for tokens '''
@@ -57,9 +60,6 @@ def mark_words(view, search_all=True):
         ''' runs the diction executable and parses its output '''
         diction_words = []
 
-        window = sublime.active_window()
-        if window:
-            view = window.active_view()
         if view:
             debug('\n\nrunning diction on file: ' + view.file_name())
             try:
@@ -99,8 +99,9 @@ def mark_words(view, search_all=True):
                         diction_words.append(new_diction_match_object)
 
                 debug('word tokens found:\n')
-                for nd in diction_words:
-                    debug(nd)
+                if settings.debug:
+                    for nd in diction_words:
+                        debug(nd)
             SUGGESTIONS_IN_VIEW[view.id()] = diction_words
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
@@ -119,7 +120,19 @@ def mark_words(view, search_all=True):
             else:
                 pattern = re.escape(w.surrounding_text + w.conflicting_phrase)
             try:
+                # TODO: pattern non-greedy, use find with pos 0?
                 intermediate_regions = view.find_all(pattern, sublime.IGNORECASE, '', [])
+
+                # get line number of region of confl. phrase + pattern, as diction lists lines at beggining of sentence
+                # if different -> change in SUGGESTIONS_IN_VIEW[view.id()], so suggestions are on correct
+                # line number
+                if intermediate_regions:
+                    if w.surrounding_after:
+                        row, col = view.rowcol(intermediate_regions[0].a)
+                    else:
+                        row, col = view.rowcol(intermediate_regions[0].b)
+                    w.lineno = row + 1
+                
             except UnicodeDecodeError:
                 continue  # Skip on really weird input words
             # to just mark the conflicting phrase and not the complete regex match, edit the regions >:)
@@ -306,7 +319,6 @@ def load_settings():
 
     def process_settings(settings):
         ''' process settings from file '''
-
         setattr(settings, 'enabled', settings.get('enabled', True))
         setattr(settings, 'debug', settings.get('debug', True))
         setattr(settings, 'color_scope_name', settings.get('color_scope_name', 'comment'))
