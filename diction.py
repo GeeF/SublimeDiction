@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import platform
 import sublime
 import sublime_plugin
 import subprocess
@@ -7,7 +8,9 @@ import re
 
 diction_word_regions = []
 SUGGESTIONS_IN_VIEW = {}  # error organized per view to display
-os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew diction executable
+
+if platform.system() == 'Darwin':
+    os.environ['PATH'] += os.pathsep + '/usr/local/bin'  # add this for OSX homebrew diction executable
 
 # TODO:
 # * regex only once
