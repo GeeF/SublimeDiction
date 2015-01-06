@@ -203,9 +203,20 @@ def update_statusbar(view):
 
 
 class DictionCommand(sublime_plugin.TextCommand):
-    ''' Do flake8 lint on current file '''
+    ''' run gnu diction on current file '''
     def run(self, edit):
-        print('==== Diction Command ====')
+        debug('running diction command...')
+        window = sublime.active_window()
+        if window:
+            view = window.active_view()
+            if view:
+                mark_words(view, search_all=False)
+
+
+class DictionDisableCommand(sublime_plugin.TextCommand):
+    ''' disbale diction and erase highlighting '''
+    def run(self, edit):
+        DictionListener.disable()
 
 
 class DictionListener(sublime_plugin.EventListener):
@@ -251,8 +262,6 @@ class DictionListener(sublime_plugin.EventListener):
         if (not allowed_extensions) or ext in allowed_extensions:
             if not DictionListener.enabled:
                 DictionListener.enabled = True
-
-            mark_words(view)
             return
 
         DictionListener.disable()  # turn off for this file!
@@ -266,10 +275,6 @@ class DictionListener(sublime_plugin.EventListener):
 
     def on_load(self, view):
         self.handle_event(view)
-
-    def on_modified(self, view):
-        if DictionListener.enabled:
-            mark_words(view, search_all=False)  # TODO move to own Command
 
     def on_selection_modified(self, view):
         ''' cursor moved, check, if there is anything to display '''

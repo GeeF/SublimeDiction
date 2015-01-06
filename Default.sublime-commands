@@ -1,3 +1,4 @@
 [
-    { "caption": "GNU Diction run", "command": "diction" }
+    { "caption": "Diction: GNU Diction run", "command": "diction" },
+    { "caption": "Diction: disable", "command": "diction_disable" }
 ]
