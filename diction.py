@@ -51,24 +51,24 @@ def mark_words(view, search_all=True):
     def neighborhood(iterable):
         ''' generator function providing next and previous items for tokens '''
         iterator = iter(iterable)
-        prev = None
-        item = iterator.next()  # throws StopIteration if empty.
-        for next in iterator:
-            yield (prev, item, next)
-            prev = item
-            item = next
-        yield (prev, item, None)
+        prev_token = None
+        item = next(iterator)  # throws StopIteration if empty.
+        for next_token in iterator:
+            yield (prev_token, item, next_token)
+            prev_token = item
+            item = next_token
+        yield (prev_token, item, None)
 
     def run_diction():
         ''' runs the diction executable and parses its output '''
         diction_words = []
 
-        if view:
+        if view and view.file_name():
             debug('\n\nrunning diction on file: ' + view.file_name())
             try:
                 # add -s to get the suggestions from diction
                 output = subprocess.Popen([settings.diction_executable, '-qs', view.file_name()],
-                                          stdout=subprocess.PIPE).communicate()[0]
+                                          stdout=subprocess.PIPE).communicate()[0].decode('utf-8')
             except OSError:
                 print('[Diction] Error. diction does not seem to be installed or is not in the PATH.')
 
@@ -108,7 +108,7 @@ def mark_words(view, search_all=True):
             SUGGESTIONS_IN_VIEW[view.id()] = diction_words
             sublime.status_message('    Diction: ' + output[output.rfind('\n\n'):])
         else:
-            print('could not get view. Abort')
+            print('buffer not saved to file. diction needs a file to work on. Abort')
             return []
         return diction_words
 
